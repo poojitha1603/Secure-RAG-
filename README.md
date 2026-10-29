@@ -139,3 +139,4 @@ the offline stub answer. Tests never call Groq, even if the key is set.
 - The embedded Qdrant re-seeds on every restart. Use a Qdrant server (`docker run -p 6333:6333 qdrant/qdrant`, then `QDRANT_URL=http://localhost:6333`) to persist data.
 - No answer cache exists. If you add one, put `tenant_id` and the role set in the cache key; summaries, whole-document embeddings and chat history would need the same ACL payload.
 - Not yet: Dockerfile, SSO/OIDC, per-document expiry.
+![CI](https://github.com/poojitha1603/Secure-RAG-/actions/workflows/ci.yml/badge.svg)
