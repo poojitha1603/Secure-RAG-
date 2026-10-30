@@ -1,6 +1,9 @@
 # SecureRAG: permission-aware multi-tenant RAG
 
-![tests](https://img.shields.io/badge/tests-148%20passing-brightgreen) ![leaks](https://img.shields.io/badge/adversarial%20leaks-0%20%2F%20624-brightgreen)
+**Live demo: https://secure-rag-cin4.onrender.com** (free tier: the first load can take ~50 seconds to wake up)
+Demo accounts: `acme-employee`, `acme-hr`, `acme-admin`, `initech-employee`, `initech-hr`, `globex-hr` ... (12 in all). The password is shared on request.
+
+![CI](https://github.com/poojitha1603/Secure-RAG-/actions/workflows/ci.yml/badge.svg) ![tests](https://img.shields.io/badge/tests-150%20passing-brightgreen) ![leaks](https://img.shields.io/badge/adversarial%20leaks-0%20%2F%20624-brightgreen)
 
 A question-answering system for several companies at once, where **what you can retrieve depends on who you are**.
 Identity comes only from a signed JWT. The access rule is applied *inside* the vector search, a second check
@@ -19,6 +22,10 @@ request + JWT -> verify (user, tenant, roles) -> build ACL filter -> Qdrant sear
 Same question, same company, different people: the employee never receives the confidential salary
 sheet, not even as text inside the prompt sent to the LLM.
 
+## Architecture
+
+![Architecture](docs/architecture.png)
+
 ## Features
 
 - **Tenant isolation and role ACLs** on every chunk (`tenant_id`, `allowed_roles`, `allowed_users`, `classification`).
@@ -29,7 +36,7 @@ sheet, not even as text inside the prompt sent to the LLM.
 - **Append-only audit**: every retrieval, and every admin action, in SQLite tables protected by triggers (never passwords or document text).
 - **Chat UI** with a live "what the server reads from your token" panel and a forged-tenant demo.
 - **Optional real parts**: Groq LLM answers, semantic embeddings (`fastembed`), Qdrant server.
-- **Tests**: 148 tests, including a 624-query adversarial leakage suite (prompt injection, forged tokens, planted instructions, cross-tenant probes) checked against an independent oracle.
+- **Tests**: 150 tests, including a 624-query adversarial leakage suite (prompt injection, forged tokens, planted instructions, cross-tenant probes) checked against an independent oracle.
 
 ## Run it
 
@@ -38,7 +45,7 @@ python -m venv venv
 .\venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env            # then set JWT_SECRET and SEED_PASSWORD
-python -m pytest -q               # expect: 148 passed, 0 forbidden chunks returned
+python -m pytest -q               # expect: 150 passed, 0 forbidden chunks returned
 uvicorn app.main:app --reload     # http://127.0.0.1:8000  (seeds 3 fictional companies)
 python scripts/benchmark.py       # filter latency + revoke-to-effect time
 ```
@@ -116,7 +123,7 @@ the offline stub answer. Tests never call Groq, even if the key is set.
 `JWT_SECRET` (**set a real one**), `SEED_PASSWORD`, `SEED` (default 1), `DEV_TOKENS` (default 1),
 `QDRANT_URL` (unset = embedded in-memory, re-seeded on every start), `AUDIT_DB`, `USERS_DB`,
 `EMBEDDER` (`hash` or `fastembed`), `GROQ_API_KEY`, `GROQ_MODEL` (default `llama-3.3-70b-versatile`),
-`LOGIN_MAX_FAILURES` (default 5), `LOGIN_WINDOW_SECONDS` (default 300). See `.env.example`. Never commit `.env`.
+`LOGIN_MAX_FAILURES` (default 5), `LOGIN_WINDOW_SECONDS` (default 300), `LOGIN_MAX_PER_IP` (default auto, 30). See `.env.example`. Never commit `.env`.
 
 ## Map to the 8 build steps
 
@@ -131,15 +138,6 @@ the offline stub answer. Tests never call Groq, even if the key is set.
 | 7 Permission changes + revoke test | `store.update_acl`, `PUT /admin/documents/{id}/acl`, `tests/test_permission_changes.py` |
 | 8 Leakage suite + CI | `tests/test_leakage.py`, `.github/workflows/ci.yml` |
 
-## Known limits and future work
-
-- Logout only clears the token in the browser (JWTs are stateless). To cut a user off at once, disable or delete them.
-- Login throttling is per process; use Redis if you run several workers.
-- Users and audit logs use SQLite. For production, move to Postgres (same columns; use `REVOKE UPDATE, DELETE` instead of the SQLite triggers).
-- The embedded Qdrant re-seeds on every restart. Use a Qdrant server (`docker run -p 6333:6333 qdrant/qdrant`, then `QDRANT_URL=http://localhost:6333`) to persist data.
-- No answer cache exists. If you add one, put `tenant_id` and the role set in the cache key; summaries, whole-document embeddings and chat history would need the same ACL payload.
-- Not yet: Dockerfile, SSO/OIDC, per-document expiry.
-![CI](https://github.com/poojitha1603/Secure-RAG-/actions/workflows/ci.yml/badge.svg)
 ## Deploy (Render, free plan)
 
 The repo includes `render.yaml`, so deploying is a few clicks:
@@ -155,3 +153,12 @@ The app refuses to start with `DEV_TOKENS=0` unless `JWT_SECRET` is at least 32 
 Free-plan behaviour: the service sleeps after about 15 minutes idle (the first request then takes ~30-60 s), and the disk is wiped on every restart, so users, uploads and the audit log reset to the seed data. That is fine for a demo. For real use, use a Qdrant server, Postgres and a persistent disk. Changing `SEED_PASSWORD` has no effect once a `users.db` already exists.
 
 Anyone with the demo password can sign in as an admin and upload or delete documents *in the fictional demo companies*. Keep real or sensitive documents out of a public demo.
+
+## Known limits and future work
+
+- Logout only clears the token in the browser (JWTs are stateless). To cut a user off at once, disable or delete them.
+- Login throttling is per process; use Redis if you run several workers.
+- Users and audit logs use SQLite. For production, move to Postgres (same columns; use `REVOKE UPDATE, DELETE` instead of the SQLite triggers).
+- The embedded Qdrant re-seeds on every restart. Use a Qdrant server (`docker run -p 6333:6333 qdrant/qdrant`, then `QDRANT_URL=http://localhost:6333`) to persist data.
+- No answer cache exists. If you add one, put `tenant_id` and the role set in the cache key; summaries, whole-document embeddings and chat history would need the same ACL payload.
+- Not yet: Dockerfile, SSO/OIDC, per-document expiry.
