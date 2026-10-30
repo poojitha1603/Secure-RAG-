@@ -101,3 +101,21 @@ def test_tokens_and_other_endpoints_are_unaffected_by_login_lockout():
     for _ in range(3):
         login(c, "acme-hr", "wrong-password")
     assert c.post("/token", json={"user_id": "acme-hr"}).status_code == 200
+
+
+def test_per_ip_limit_is_configurable_for_deployments_behind_a_proxy():
+    c = TestClient(create_app(Settings(
+        qdrant_url=None, audit_db=":memory:", users_db=":memory:", jwt_secret=SECRET, seed=True,
+        enable_dev_tokens=True, seed_password=SEED_PASSWORD, login_max_failures=3, login_max_per_ip=100)))
+    codes = [login(c, f"user-{i}", "wrong-password").status_code for i in range(60)]
+    assert set(codes) == {401}                      # 60 > the default IP limit of 30, still allowed
+
+
+def test_production_mode_refuses_a_guessable_signing_key():
+    base = dict(qdrant_url=None, audit_db=":memory:", users_db=":memory:", seed=True,
+                enable_dev_tokens=False, seed_password=SEED_PASSWORD)
+    for bad in ("dev-only-change-me", "short"):
+        with pytest.raises(RuntimeError, match="JWT_SECRET"):
+            create_app(Settings(jwt_secret=bad, **base))
+    create_app(Settings(jwt_secret=SECRET, **base))                    # a long secret is fine
+    create_app(Settings(jwt_secret="dev-only-change-me", **{**base, "enable_dev_tokens": True}))  # dev mode ok

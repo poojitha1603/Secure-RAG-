@@ -37,6 +37,7 @@ class Settings:
     users_db: str = field(default_factory=lambda: os.getenv("USERS_DB", "users.db"))
     # Password given to the seeded demo accounts (only when SEED=1). Change it in .env.
     seed_password: str = field(default_factory=lambda: os.getenv("SEED_PASSWORD", "demo-password"))
+    login_max_per_ip: int = field(default_factory=lambda: int(os.getenv("LOGIN_MAX_PER_IP", "0")))  # 0 = auto
     login_max_failures: int = field(default_factory=lambda: int(os.getenv("LOGIN_MAX_FAILURES", "5")))
     login_window_seconds: float = field(default_factory=lambda: float(os.getenv("LOGIN_WINDOW_SECONDS", "300")))
 
@@ -101,8 +102,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = s
     app.state.store = VectorStore(s.qdrant_url)
     app.state.audit = AuditLog(s.audit_db)
+    if not s.enable_dev_tokens and (s.jwt_secret == "dev-only-change-me" or len(s.jwt_secret) < 32):
+        # Production mode (DEV_TOKENS=0) with a guessable signing key would let anyone forge admin tokens.
+        raise RuntimeError("JWT_SECRET must be set to a random value of at least 32 characters "
+                           "when DEV_TOKENS=0. Generate one: python -c \"import secrets;print(secrets.token_urlsafe(48))\"")
     app.state.users = UserStore(s.users_db)
-    app.state.throttle = LoginThrottle(s.login_max_failures, max(30, 6 * s.login_max_failures),
+    app.state.throttle = LoginThrottle(s.login_max_failures,
+                                       s.login_max_per_ip or max(30, 6 * s.login_max_failures),
                                        s.login_window_seconds)
     app.state.build_filter = acl_filter           # tests can swap this to simulate a bug
     if s.seed and app.state.store.count() == 0:

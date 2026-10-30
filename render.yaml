@@ -1,0 +1,22 @@
+# Render Blueprint: New > Blueprint > pick this repo. Free plan works for a demo.
+services:
+  - type: web
+    name: secure-rag
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: JWT_SECRET
+        generateValue: true          # Render creates a long random value
+      - key: SEED_PASSWORD
+        sync: false                  # you type it in the dashboard; share it only as the demo login
+      - key: DEV_TOKENS
+        value: "0"                   # no password-less sign-in on a public site
+      - key: EMBEDDER
+        value: hash                  # fastembed needs more RAM than the free plan has
+      - key: LOGIN_MAX_PER_IP
+        value: "500"                 # behind Render's proxy all clients can share one IP

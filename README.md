@@ -140,3 +140,18 @@ the offline stub answer. Tests never call Groq, even if the key is set.
 - No answer cache exists. If you add one, put `tenant_id` and the role set in the cache key; summaries, whole-document embeddings and chat history would need the same ACL payload.
 - Not yet: Dockerfile, SSO/OIDC, per-document expiry.
 ![CI](https://github.com/poojitha1603/Secure-RAG-/actions/workflows/ci.yml/badge.svg)
+## Deploy (Render, free plan)
+
+The repo includes `render.yaml`, so deploying is a few clicks:
+
+1. Push to GitHub, then on https://render.com choose **New > Blueprint** and pick this repo.
+2. When asked, type a value for `SEED_PASSWORD`. It becomes the password of all demo accounts (`acme-employee`, `acme-hr`, `acme-admin`, ...), so treat it as a public demo login.
+3. Deploy. Open the URL Render gives you and sign in. The app answers `/health` once it is up.
+
+What the blueprint sets: `DEV_TOKENS=0` (no password-less sign-in), a random 48-character `JWT_SECRET`, `EMBEDDER=hash` (fastembed needs more RAM than the free plan has), and a higher per-IP login limit because behind Render's proxy all visitors can look like one IP (the per-username lockout still applies).
+
+The app refuses to start with `DEV_TOKENS=0` unless `JWT_SECRET` is at least 32 random characters, so a guessable signing key cannot reach production by mistake.
+
+Free-plan behaviour: the service sleeps after about 15 minutes idle (the first request then takes ~30-60 s), and the disk is wiped on every restart, so users, uploads and the audit log reset to the seed data. That is fine for a demo. For real use, use a Qdrant server, Postgres and a persistent disk. Changing `SEED_PASSWORD` has no effect once a `users.db` already exists.
+
+Anyone with the demo password can sign in as an admin and upload or delete documents *in the fictional demo companies*. Keep real or sensitive documents out of a public demo.
