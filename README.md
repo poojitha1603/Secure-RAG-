@@ -1,7 +1,7 @@
 # SecureRAG: permission-aware multi-tenant RAG
 
 **Live demo: https://secure-rag-cin4.onrender.com** (free tier: the first load can take ~50 seconds to wake up)
-Demo accounts: `acme-employee`, `acme-hr`, `acme-admin`, `initech-employee`, `initech-hr`, `globex-hr` ... (12 in all). The password is shared on request.
+Demo accounts: `acme-employee`, `acme-hr`, `acme-admin`,`acme-manager`, `initech-employee`, `initech-hr`, `globex-hr` ... (12 in all). The password is shared on request.
 
 ![CI](https://github.com/poojitha1603/Secure-RAG-/actions/workflows/ci.yml/badge.svg) ![tests](https://img.shields.io/badge/tests-150%20passing-brightgreen) ![leaks](https://img.shields.io/badge/adversarial%20leaks-0%20%2F%20624-brightgreen)
 
